@@ -3,20 +3,17 @@ from typing import Union, Any
 
 
 class PriorityQueue:
+    """
+    This class is a friendly-use `heapq` wrapper
+    """
     def __init__(self):
         self._elements = list()
 
     def empty(self):
         return not self._elements
 
-    def put(self, item, priority: Union[int, None] = None):
-        if priority is None:
-            heapq.heappush(self._elements, item)
-        else:
-            heapq.heappush(self._elements, (priority, item))
+    def push(self, item):
+        heapq.heappush(self._elements, item)
 
-    def append(self, item, priority: Union[int, None] = None):
-        self.put(item, priority)
-
-    def pop(self, *args) -> Any:
+    def pop(self) -> Any:
         return heapq.heappop(self._elements)
