@@ -19,18 +19,24 @@ class Node:
     def cost(self) -> int:
         return self._cost
 
-    def get_branch(self) -> Tuple['Node']:
     @property
     def item(self) -> Minterm:
         return self._item
 
+    @property
+    def parents(self) -> FrozenSet['Node']:
         node = self
         solution = set()
-        solution.add(node)
-        while node.prev_node is not None:
-            node = node.prev_node
-            solution.add(node)
-        return tuple(solution)
+        solution.add(node.item)
+        while node._parent is not None:
+            node = node._parent
+            solution.add(node.item)
+        # convert to hashable set
+        return frozenset(solution)
+
+    @property
+    def ones(self) -> Set[int]:
+        return set.union(*(node.ones for node in self.parents))
 
     def __str__(self):
         return str(self.item)
