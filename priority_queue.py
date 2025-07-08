@@ -1,5 +1,5 @@
 import heapq
-from typing import Union, Any
+from typing import Any
 
 
 class PriorityQueue:

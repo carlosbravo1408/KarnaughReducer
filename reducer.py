@@ -18,8 +18,6 @@ class Reducer:
         self._inputs_number = num_input
 
     def minimize(self):
-        # TODO: Minterms should be sorted by HammingDistance compared with 0
-        #  position
         prime_implicants = self._get_prime_implicants()
         essential_prime_implicants = self._get_essential_prime_implicants(
             prime_implicants
@@ -30,6 +28,8 @@ class Reducer:
         return essential_prime_implicants, prime_implicants
 
     def _get_prime_implicants(self):
+        # TODO: Minterms should be sorted by HammingDistance compared with 0
+        #  position
         minterms = [
             Minterm(f'{v:0{self._inputs_number}b}', {v}) for v in self._values
         ]
@@ -76,7 +76,7 @@ class Reducer:
                 essential_prime_implicants.add(last_minterm)
         return essential_prime_implicants
 
-    def get_all_solutions(self, max_solutions: int = 5):
+    def get_all_solutions(self, max_solutions: int = -1):
         essential_prime_implicants, prime_implicants = self.minimize()
         shortest_solution_len = len(essential_prime_implicants) \
             + len(prime_implicants)
@@ -118,16 +118,15 @@ class Reducer:
             current_ones = current_node.ones
             if 0 < max_solutions <= len(solutions):
                 break
-            if len(current_configuration) >= shortest_solution_len:
+            if len(current_configuration) > shortest_solution_len:
                 continue
             for minterm in prime_implicants:
                 if minterm == current_node.item:
                     continue
                 _ones = set.union(current_ones, minterm.ones)
-                cost = len(self._ones - _ones)
                 node = Node(
                     item=minterm,
-                    cost=cost,
+                    cost=len(self._ones - _ones),
                     parent=current_node,
                 )
                 node_configuration = node.parents
@@ -135,12 +134,14 @@ class Reducer:
                     continue
                 if node in current_configuration:
                     continue
-                if cost >= current_node.cost:
+                if node.cost >= current_node.cost:
                     continue
                 if len(self._ones - node.ones) == 0:
                     if len(node_configuration) < shortest_solution_len:
                         shortest_solution_len = len(node_configuration)
-                    solutions.add(node_configuration)
+                        solutions = set()
+                    if len(node_configuration) <= shortest_solution_len:
+                        solutions.add(node_configuration)
                 else:
                     frontier.push(node)
                 configuration_visited.add(node_configuration)
