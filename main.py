@@ -1,82 +1,106 @@
-import time
-import random
+import timeit
+from reducer import Reducer as R1
 
-from reducer import Reducer
+def get_results(ones, not_care, input_number):
+    s1 = R1(num_input=input_number, ones=ones, not_care=not_care)
+    t1 = timeit.timeit(lambda: s1.get_all_solutions(), number=10)
+    sol1 = s1.get_all_solutions()
+
+    result = f"""
+Results
+-----------------------
+with ones {ones} and not_care {not_care}
+times (s) : {t1} 
+solution Reducer = {sol1} 
+"""
+    print(result)
 
 if __name__ == '__main__':
-    start = time.time()
-    ones, does_not_care, input_number = {0, 1, 2, 4, 5, 6, 9, 10, 11, 13, 14,
-                                         15}, set(), 4
-    solver = Reducer(inputs_number=input_number, ones=ones,
-                     not_care=does_not_care)
-    solver.reduce()
-    print(time.time() - start)
-    print(solver.solutions)
+
+    ones = {0, 1, 2, 5, 6, 7, 8, 9, 10, 14}
+    not_care = {3, 11, 15}
+    input_number = 4
+    get_results(ones, not_care, input_number)
+
+    ones = set()
+    not_care = set()
+    input_number = 3
+    get_results(ones, not_care, input_number)
+
+    ones = set()
+    not_care = {0,1,2,3,4,5,6,7}
+    input_number = 3
+    get_results(ones, not_care, input_number)
+
+    ones = {0,1,2,3,4,5,6,7}
+    not_care = set()
+    input_number = 3
+    get_results(ones, not_care, input_number)
+
+    ones = {0,1,2,3,4,5,6}
+    not_care = set()
+    input_number = 3
+    get_results(ones, not_care, input_number)
+
+    ones = {15}
+    not_care = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14}
+    input_number = 4
+    get_results(ones, not_care, input_number)
+
+    ones = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14}
+    not_care = {15}
+    input_number = 4
+    get_results(ones, not_care, input_number)
+
+    ones = {0, 1, 2, 4, 5, 6, 9, 10, 11, 13, 14, 15}
+    not_care = set()
+    input_number = 4
+    get_results(ones, not_care, input_number)
+    #duplicado del anterior para verificar si el error se duplica en C++
+    ones = {0, 1, 2, 4, 5, 6, 9, 10, 11, 13, 14, 15}
+    not_care = set()
+    input_number = 4
+    get_results(ones, not_care, input_number)
 
     # https://www.codeproject.com/Articles/649849/A-Cplusplus-Karnaugh-Map-Minimizer-Infinite-Variab
-    start = time.time()
-    ones, does_not_care, input_number = {0, 2, 3, 5, 7, 8, 9, 10, 11, 13,
-                                         15}, set(), 4
-    solver = Reducer(inputs_number=input_number, ones=ones,
-                     not_care=does_not_care)
-    solver.reduce()
-    print(time.time() - start)
-    print(solver.solutions)
+    ones = {0, 2, 3, 5, 7, 8, 9, 10, 11, 13, 15}
+    not_care = set()
+    input_number = 4
+    get_results(ones, not_care, input_number)
+
+    # https://www.youtube.com/watch?v=bpAvLVeGBK0
+    ones = {1,4,6,7,8,9,11,15}
+    not_care = set()
+    input_number = 4
+    get_results(ones, not_care, input_number)
 
     # https://www.youtube.com/watch?v=gpn3fvPU9Cs
-    start = time.time()
-    ones, does_not_care, input_number = {0, 1, 2, 11, 12, 13, 14}, {3, 7, 8}, 4
-    solver = Reducer(inputs_number=input_number, ones=ones,
-                     not_care=does_not_care)
-    solver.reduce()
-    print(time.time() - start)
-    print(solver.solutions)
+    ones = {0, 1, 2, 11, 12, 13, 14}
+    not_care = {3, 7, 8}
+    input_number = 4
+    get_results(ones, not_care, input_number)
 
-    # # https://www.youtube.com/watch?v=DTOzK88Inkk
-    start = time.time()
-    ones, does_not_care, input_number = {1, 3, 4, 5, 9, 11, 12, 13, 14,
-                                         15}, set(), 4
-    solver = Reducer(inputs_number=input_number, ones=ones,
-                     not_care=does_not_care)
-    solver.reduce()
-    print(time.time() - start)
-    print(solver.solutions)
+    # https://www.youtube.com/watch?v=DTOzK88Inkk
+    ones = {1, 3, 4, 5, 9, 11, 12, 13, 14, 15}
+    not_care = set()
+    input_number = 4
+    get_results(ones, not_care, input_number)
 
-    # # https://www.youtube.com/watch?v=_EMeZCdzX2k
-    start = time.time()
-    ones, does_not_care, input_number = {1, 3, 4, 5, 7, 9, 10, 11, 15}, set(), 4
-    solver = Reducer(inputs_number=input_number, ones=ones,
-                     not_care=does_not_care)
-    solver.reduce()
-    print(time.time() - start)
-    print(solver.solutions)
+    # https://www.youtube.com/watch?v=_EMeZCdzX2k
+    ones = {1, 3, 4, 5, 7, 9, 10, 11, 15}
+    not_care = set()
+    input_number = 4
+    get_results(ones, not_care, input_number)
 
-    # # https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm
-    start = time.time()
-    ones, does_not_care, input_number = {4, 8, 10, 11, 12, 15}, {9, 14}, 4
-    solver = Reducer(inputs_number=input_number, ones=ones,
-                     not_care=does_not_care)
-    solver.reduce()
-    print(time.time() - start)
-    print(solver.solutions)
+    # https://en.wikipedia.org/wiki/Quine%E2%80%93McCluskey_algorithm
+    ones = {4, 8, 10, 11, 12, 15}
+    not_care = {9, 14}
+    input_number = 4
+    get_results(ones, not_care, input_number)
 
     # https://en.wikipedia.org/wiki/Petrick%27s_method
-    start = time.time()
-    ones, does_not_care, input_number = {0, 1, 2, 5, 6, 7}, set(), 3
-    solver = Reducer(inputs_number=input_number, ones=ones,
-                     not_care=does_not_care)
-    solver.reduce()
-    print(time.time() - start)
-    print(solver.solutions)
+    ones = {0, 1, 2, 5, 6, 7}
+    not_care = set()
+    input_number = 3
+    get_results(ones, not_care, input_number)
 
-    input_number = 10
-    ones = {random.randrange(
-        0, 1 << input_number) for _ in range(1 << round(input_number * 0.7))}
-    does_not_care = {random.randrange(
-        0, 1 << input_number) for _ in range(1 << round(input_number * 0.4))}
-    start = time.time()
-    solver = Reducer(inputs_number=input_number, ones=ones,
-                     not_care=does_not_care)
-    solver.reduce()
-    print(time.time() - start)
-    print(solver.solutions)
