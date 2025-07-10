@@ -1,6 +1,6 @@
 from typing import Union, Set, FrozenSet
 
-from minterm import Minterm
+from .minterm import Minterm
 
 
 class Node:

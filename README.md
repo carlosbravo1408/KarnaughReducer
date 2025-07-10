@@ -38,8 +38,10 @@ The `reducer.py` module provides a class `Reducer` to minimize boolean functions
   - Only solutions of minimal length are returned, ensuring all returned solutions are optimal.
 
 ### Example
+
 ```python
 from reducer import Reducer
+
 ones = {0, 1, 2, 5, 6, 7, 8, 9, 10, 14}
 not_care = {3, 11, 15}
 reducer = Reducer(num_input=4, ones=ones, not_care=not_care)

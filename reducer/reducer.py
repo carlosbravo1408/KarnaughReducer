@@ -1,8 +1,8 @@
 from typing import Union
 
-from minterm import Minterm
-from node import Node
-from priority_queue import PriorityQueue
+from .minterm import Minterm
+from .node import Node
+from .priority_queue import PriorityQueue
 
 
 class Reducer:
