@@ -130,7 +130,7 @@ class Reducer:
             new_solution.add(frozenset(minterm.sop2pos() for minterm in subset))
         return new_solution
 
-    def get_all_solutions(self, max_solutions: int = -1):
+    def get_all_solutions(self, max_solutions: int = 5):
         essential_prime_implicants, prime_implicants = self.minimize()
         shortest_solution_len = len(essential_prime_implicants) \
             + len(prime_implicants)

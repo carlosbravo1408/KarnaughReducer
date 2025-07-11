@@ -65,8 +65,7 @@ public:
         return {essential_prime_implicants, prime_implicants};
     }
 
-    std::unordered_set<HashableSet<Minterm, Minterm::Hash>, 
-                       HashableSet<Minterm, Minterm::Hash>::HashFunction> getAllSolutions(int max_solutions = -1) {
+    std::unordered_set<HashableSet<Minterm, Minterm::Hash>, HashableSet<Minterm, Minterm::Hash>::HashFunction> getAllSolutions(int max_solutions = 5) {
         
         auto [essential_prime_implicants, prime_implicants] = minimize();
         
