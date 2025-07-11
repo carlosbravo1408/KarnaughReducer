@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Set
 
 from .minterm import Minterm
 from .node import Node
@@ -10,12 +10,23 @@ class Reducer:
             self,
             num_input: int,
             ones: Union[set, None] = None,
-            not_care: Union[set, None] = None
+            not_care: Union[set, None] = None,
+            is_sop: bool = True,
     ):
         self._ones = ones
         self._not_care = not_care
         self._values = set.union(self._ones, self._not_care)
         self._inputs_number = num_input
+        self._is_sop = is_sop
+        if not is_sop:
+            self._invert_input()
+
+    def _invert_input(self):
+        self._ones = {i for i in range(1<<self._inputs_number)} \
+             - self._ones \
+             - self._not_care
+        self._values = set.union(self._ones, self._not_care)
+
 
     def minimize(self):
         prime_implicants = self._get_prime_implicants()
@@ -27,9 +38,43 @@ class Reducer:
             prime_implicants)
         return essential_prime_implicants, prime_implicants
 
+    def _get_prime_implicants_sorted(self):
+        zero_minterm = Minterm('0' * self._inputs_number, set())
+        minterms = sorted([
+            Minterm(f'{v:0{self._inputs_number}b}', {v})
+            for v in self._values
+        ], key=lambda m: zero_minterm.hamming_distance(m))
+        value = 0
+        while value < self._inputs_number and len(minterms) > 1:
+            comparatives = set()
+            visited = set()
+            for i in range(len(minterms)):
+                current_minterm = minterms[i]
+                sorted_minterms = sorted(
+                    minterms, key=lambda m: current_minterm.hamming_distance(m))
+                for j in range(len(sorted_minterms)):
+                    next_minterm = sorted_minterms[j]
+                    if next_minterm == current_minterm:
+                        continue
+                    if current_minterm.hamming_distance(next_minterm) > 1:
+                        break
+                    if current_minterm.hamming_distance(next_minterm) == 1:
+                        visited.add(next_minterm)
+                        visited.add(current_minterm)
+                        comparatives.add(
+                            next_minterm.create_implicant(current_minterm))
+            if len(minterms) != len(visited):
+                for minterm in minterms:
+                    if minterm in visited:
+                        continue
+                    comparatives.add(minterm)
+            if comparatives == set(minterms):
+                break
+            value += 1
+            minterms = sorted(comparatives, key=lambda m: zero_minterm.hamming_distance(m))
+        return set(minterms)
+
     def _get_prime_implicants(self):
-        # TODO: Minterms should be sorted by HammingDistance compared with 0
-        #  position
         minterms = [
             Minterm(f'{v:0{self._inputs_number}b}', {v}) for v in self._values
         ]
@@ -76,6 +121,15 @@ class Reducer:
                 essential_prime_implicants.add(last_minterm)
         return essential_prime_implicants
 
+    def _sop2pos(self, solution: Set):
+        """
+        Convert Sum of products to Product of Sums
+        """
+        new_solution = set()
+        for subset in solution:
+            new_solution.add(frozenset(minterm.sop2pos() for minterm in subset))
+        return new_solution
+
     def get_all_solutions(self, max_solutions: int = -1):
         essential_prime_implicants, prime_implicants = self.minimize()
         shortest_solution_len = len(essential_prime_implicants) \
@@ -99,7 +153,10 @@ class Reducer:
                     cost = cost,
                 )
             if len(self._ones - start_node.ones) == 0:
-                return {start_node.parents}
+                solutions = {start_node.parents}
+                if not self._is_sop:
+                    solutions = self._sop2pos(solutions)
+                return solutions
             frontier.push(start_node)
             configuration_visited.add(start_node.parents)
         else:
@@ -145,4 +202,6 @@ class Reducer:
                 else:
                     frontier.push(node)
                 configuration_visited.add(node_configuration)
+        if not self._is_sop:
+            solutions = self._sop2pos(solutions)
         return solutions

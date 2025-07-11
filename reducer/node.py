@@ -10,7 +10,7 @@ class Node:
             item: Minterm,
             parent: Union['Node', None] = None,
             cost: int = 0
-    ):
+    ) -> None:
         self._parent = parent
         self._cost = cost
         self._item = item
@@ -38,17 +38,17 @@ class Node:
     def ones(self) -> Set[int]:
         return set.union(*(node.ones for node in self.parents))
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.item)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self.item)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.item)
 
-    def __lt__(self, other: 'Node'):
+    def __lt__(self, other: 'Node') -> bool:
         return self.cost < other.cost
 
-    def __eq__(self, other: 'Node'):
+    def __eq__(self, other: 'Node') -> bool:
         return self.item == other.item

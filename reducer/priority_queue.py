@@ -9,10 +9,10 @@ class PriorityQueue:
     def __init__(self):
         self._elements = list()
 
-    def empty(self):
+    def empty(self) -> bool:
         return not self._elements
 
-    def push(self, item):
+    def push(self, item) -> None:
         heapq.heappush(self._elements, item)
 
     def pop(self) -> Any:
