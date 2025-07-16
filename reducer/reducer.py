@@ -1,3 +1,4 @@
+import copy
 from typing import Union, Set
 
 from .minterm import Minterm
@@ -13,7 +14,8 @@ class Reducer:
             not_care: Union[set, None] = None,
             is_sop: bool = True,
     ):
-        self._ones = ones
+        self.__original_ones = ones
+        self._ones = copy.deepcopy(ones)
         self._not_care = not_care
         self._values = set.union(self._ones, self._not_care)
         self._inputs_number = num_input
@@ -37,42 +39,6 @@ class Reducer:
         prime_implicants = prime_implicants - self._get_non_prime_implicants(
             prime_implicants)
         return essential_prime_implicants, prime_implicants
-
-    def _get_prime_implicants_sorted(self):
-        zero_minterm = Minterm('0' * self._inputs_number, set())
-        minterms = sorted([
-            Minterm(f'{v:0{self._inputs_number}b}', {v})
-            for v in self._values
-        ], key=lambda m: zero_minterm.hamming_distance(m))
-        value = 0
-        while value < self._inputs_number and len(minterms) > 1:
-            comparatives = set()
-            visited = set()
-            for i in range(len(minterms)):
-                current_minterm = minterms[i]
-                sorted_minterms = sorted(
-                    minterms, key=lambda m: current_minterm.hamming_distance(m))
-                for j in range(len(sorted_minterms)):
-                    next_minterm = sorted_minterms[j]
-                    if next_minterm == current_minterm:
-                        continue
-                    if current_minterm.hamming_distance(next_minterm) > 1:
-                        break
-                    if current_minterm.hamming_distance(next_minterm) == 1:
-                        visited.add(next_minterm)
-                        visited.add(current_minterm)
-                        comparatives.add(
-                            next_minterm.create_implicant(current_minterm))
-            if len(minterms) != len(visited):
-                for minterm in minterms:
-                    if minterm in visited:
-                        continue
-                    comparatives.add(minterm)
-            if comparatives == set(minterms):
-                break
-            value += 1
-            minterms = sorted(comparatives, key=lambda m: zero_minterm.hamming_distance(m))
-        return set(minterms)
 
     def _get_prime_implicants(self):
         minterms = [
