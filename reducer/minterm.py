@@ -46,7 +46,7 @@ class Minterm:
         new_minterm_str = "".join(
             "0" if c == "1" else "1" if c == "0" else c for c in (self._minterm)
         )
-        new_ones = {i for i in range(1 << self._num_inputs)} - self._ones
+        new_ones = self.zeros
         minterm = Minterm(new_minterm_str, new_ones)
         minterm._is_sop = False
         return minterm

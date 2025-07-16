@@ -19,6 +19,16 @@ public:
 
     const std::string& getMinterm() const { return minterm_; }
     const std::unordered_set<int>& getOnes() const { return ones_; }
+    std::unordered_set<int> getZeros() const {
+        std::unordered_set<int> zeros;
+        int num_inputs = minterm_.length();
+        for (int i = 0; i < (1 << num_inputs); ++i) {
+            if (ones_.find(i) == ones_.end()) {
+                zeros.insert(i);
+            }
+        }
+        return zeros;
+    }
     bool isSop() const { return is_sop_; }
 
     int hammingDistance(const Minterm& other) const {
