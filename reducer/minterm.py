@@ -6,6 +6,7 @@ class Minterm:
         self._minterm = minterm
         self._ones = ones
         self._is_sop = True
+        self._num_inputs = len(self._minterm)
 
     @property
     def minterm(self) -> str:
@@ -14,6 +15,10 @@ class Minterm:
     @property
     def ones(self) -> Set[int]:
         return self._ones
+
+    @property
+    def zeros(self) -> Set[int]:
+        return {i for i in range(1 << self._num_inputs)} - self._ones
 
     @property
     def is_sop(self) -> bool:
@@ -38,11 +43,10 @@ class Minterm:
         )
 
     def sop2pos(self) -> 'Minterm':
-        num_inputs = len(self._minterm)
         new_minterm_str = "".join(
             "0" if c == "1" else "1" if c == "0" else c for c in (self._minterm)
         )
-        new_ones = {i for i in range(1 << num_inputs)} - self._ones
+        new_ones = {i for i in range(1 << self._num_inputs)} - self._ones
         minterm = Minterm(new_minterm_str, new_ones)
         minterm._is_sop = False
         return minterm
