@@ -1,8 +1,9 @@
-from .minterm import Minterm
-from .reducer import Reducer
+from .cube import Cube
+from .reducer import Reducer, ReductionResult
 
 
 __all__ = [
+    "Cube",
     "Reducer",
-    "Minterm"
+    "ReductionResult",
 ]
