@@ -1,3 +1,4 @@
+import random
 import timeit
 from reducer import Reducer as R1
 
@@ -15,6 +16,29 @@ times (s) : {t1}
 solution Reducer = {sol1} 
 """
     print(result)
+
+def get_benchmark_case(input_number, ones_ratio=0.6, not_care_ratio=0.1):
+    """
+    Deterministic random function (seeded by input_number): 60% ones and
+    10% not care by default.
+    """
+    cells = list(range(1 << input_number))
+    random.Random(input_number).shuffle(cells)
+    ones_end = int(len(cells) * ones_ratio)
+    not_care_end = int(len(cells) * (ones_ratio + not_care_ratio))
+    ones = set(cells[:ones_end])
+    not_care = set(cells[ones_end:not_care_end])
+    return ones, not_care
+
+def get_prime_implicants_benchmark(input_number, number=10):
+    ones, not_care = get_benchmark_case(input_number)
+    s1 = R1(num_input=input_number, ones=ones, not_care=not_care)
+    t1 = timeit.timeit(lambda: s1._get_prime_implicants(), number=number)
+    primes = s1._get_prime_implicants()
+    print(
+        f"n={input_number:2} ones={len(ones):4} not_care={len(not_care):4} "
+        f"primes={len(primes):5} time (s) per run: {t1 / number:.6f}"
+    )
 
 if __name__ == '__main__':
 
@@ -106,3 +130,7 @@ if __name__ == '__main__':
     not_care = set()
     input_number = 6
     get_results(ones, not_care, input_number)
+
+    # Benchmark of _get_prime_implicants (hash-based Quine-McCluskey)
+    for input_number in (4, 6, 7, 8, 9, 10):
+        get_prime_implicants_benchmark(input_number)
