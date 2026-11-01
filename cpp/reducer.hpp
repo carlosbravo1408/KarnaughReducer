@@ -1,346 +1,181 @@
 #ifndef REDUCER_HPP
 #define REDUCER_HPP
 
-#include "minterm.hpp"
-#include "node.hpp"
-#include "priority_queue.hpp"
-#include <unordered_set>
-#include <vector>
+#include "cover_search.hpp"
+#include "cube.hpp"
 #include <algorithm>
-#include <sstream>
-#include <iomanip>
-#include <bitset>
+#include <cstdint>
+#include <stdexcept>
+#include <vector>
 
-// Helper template for hashing sets (moved before class definition)
-template<typename T, typename Hash>
-struct SetHash {
-    std::size_t operator()(const std::unordered_set<T, Hash>& s) const {
-        std::size_t hash = 0;
-        for (const auto& item : s) {
-            hash ^= Hash{}(item) + 0x9e3779b9 + (hash << 6) + (hash >> 2);
-        }
-        return hash;
-    }
-};
-
+// Exact two-level minimizer: Quine-McCluskey prime implicants, essential
+// primes and an exact minimum cover of the remaining cells (CoverSearch).
 class Reducer {
-private:
-    std::unordered_set<int> ones_;
-    std::unordered_set<int> not_care_;
-    std::unordered_set<int> values_;
-    int inputs_number_;
-    bool is_sop_;
-
 public:
-    Reducer(int num_input, const std::unordered_set<int>& ones = {}, 
-            const std::unordered_set<int>& not_care = {}, bool is_sop = true)
-        : ones_(ones), not_care_(not_care), inputs_number_(num_input), is_sop_(is_sop) {
-        
-        // Combine ones and don't care values
-        values_.insert(ones_.begin(), ones_.end());
-        values_.insert(not_care_.begin(), not_care_.end());
-        
-        if (!is_sop_) {
-            invertInput();
+    // The prime implicant table holds one bit per possible cube: 4^n bits
+    static constexpr int kMaxInputs = 12;
+
+    // In PoS (is_sop = false) the cells to cover are the zeros
+    Reducer(int num_inputs, const std::vector<int>& ones, const std::vector<int>& not_care = {},
+            bool is_sop = true)
+        : num_inputs_(num_inputs) {
+        if (num_inputs < 0 || num_inputs > kMaxInputs) {
+            throw std::invalid_argument("num_inputs must be between 0 and 12");
+        }
+        cells_.assign(size_t{1} << num_inputs, is_sop ? Cell::Other : Cell::Target);
+        for (int one : ones) {
+            cells_.at(one) = is_sop ? Cell::Target : Cell::Other;
+        }
+        for (int cell : not_care) {
+            cells_.at(cell) = Cell::NotCare;
         }
     }
 
-    std::pair<std::unordered_set<Minterm, Minterm::Hash>, 
-              std::unordered_set<Minterm, Minterm::Hash>> minimize() {
-        
-        auto prime_implicants = getPrimeImplicants();
-        auto essential_prime_implicants = getEssentialPrimeImplicants(prime_implicants);
-        
-        // Remove essential prime implicants from prime implicants
-        for (const auto& essential : essential_prime_implicants) {
-            prime_implicants.erase(essential);
-        }
-        
-        // Remove non-prime implicants
-        auto non_prime_implicants = getNonPrimeImplicants(prime_implicants);
-        for (const auto& non_prime : non_prime_implicants) {
-            prime_implicants.erase(non_prime);
-        }
-        
-        return {essential_prime_implicants, prime_implicants};
-    }
+    // Up to max_solutions minimal solutions (fewest cubes, sorted by
+    // literals), or all of them when max_solutions <= 0. Every cube groups
+    // ones in SoP and zeros in PoS; that applies to the whole result, not to
+    // each cube.
+    std::vector<std::vector<Cube>> getAllSolutions(int max_solutions = 5) const {
+        std::vector<Cube> primes = primeImplicants();
+        std::vector<bool> essential = essentialPrimeImplicants(primes);
 
-    std::unordered_set<HashableSet<Minterm, Minterm::Hash>, HashableSet<Minterm, Minterm::Hash>::HashFunction> getAllSolutions(int max_solutions = 5) {
-        
-        auto [essential_prime_implicants, prime_implicants] = minimize();
-        
-        int shortest_solution_len = essential_prime_implicants.size() + prime_implicants.size();
-        std::unordered_set<HashableSet<Minterm, Minterm::Hash>, 
-                          HashableSet<Minterm, Minterm::Hash>::HashFunction> solutions;
-        
-        PriorityQueue<Node> frontier;
-        std::unordered_set<HashableSet<Minterm, Minterm::Hash>, 
-                          HashableSet<Minterm, Minterm::Hash>::HashFunction> configuration_visited;
-
-        if (!essential_prime_implicants.empty()) {
-            auto current_prime = *essential_prime_implicants.begin();
-            essential_prime_implicants.erase(essential_prime_implicants.begin());
-            
-            auto start_node = std::make_shared<Node>(
-                current_prime,
-                nullptr,
-                countMissingOnes(current_prime.getOnes())
-            );
-
-            while (!essential_prime_implicants.empty()) {
-                current_prime = *essential_prime_implicants.begin();
-                essential_prime_implicants.erase(essential_prime_implicants.begin());
-                
-                auto current_ones = start_node->getOnes();
-                auto prime_ones = current_prime.getOnes();
-                current_ones.insert(prime_ones.begin(), prime_ones.end());
-                
-                int cost = countMissingOnes(current_ones);
-                start_node = std::make_shared<Node>(
-                    current_prime,
-                    start_node,
-                    cost
-                );
+        std::vector<Cube> essentials;
+        std::vector<char> covered(cells_.size(), 0);
+        for (size_t i = 0; i < primes.size(); ++i) {
+            if (essential[i]) {
+                essentials.push_back(primes[i]);
+                primes[i].forEachCell([&](uint32_t cell) { covered[cell] = 1; });
             }
-
-                    if (countMissingOnes(start_node->getOnes()) == 0) {
-            solutions.insert(start_node->getParents());
-            if (!is_sop_) {
-                solutions = sop2pos(solutions);
-            }
-            return solutions;
         }
-            
-            frontier.push(*start_node);
-            configuration_visited.insert(start_node->getParents());
-        } else {
-            for (const auto& minterm : prime_implicants) {
-                auto node = std::make_shared<Node>(
-                    minterm,
-                    nullptr,
-                    countMissingOnes(minterm.getOnes())
-                );
-                frontier.push(*node);
-                configuration_visited.insert(node->getParents());
+        std::vector<uint32_t> pending;
+        for (uint32_t cell = 0; cell < cells_.size(); ++cell) {
+            if (cells_[cell] == Cell::Target && !covered[cell]) {
+                pending.push_back(cell);
             }
         }
 
-        // Dijkstra algorithm
-        while (!frontier.empty()) {
-            Node current_node = frontier.pop();
-            auto current_configuration = current_node.getParents();
-            auto current_ones = current_node.getOnes();
-            
-            if (max_solutions > 0 && solutions.size() >= static_cast<size_t>(max_solutions)) {
-                break;
-            }
-            
-            if (current_configuration.size() > static_cast<size_t>(shortest_solution_len)) {
-                continue;
-            }
-            
-            for (const auto& minterm : prime_implicants) {
-                if (minterm == current_node.getItem()) {
-                    continue;
-                }
-                
-                auto new_ones = current_ones;
-                auto minterm_ones = minterm.getOnes();
-                new_ones.insert(minterm_ones.begin(), minterm_ones.end());
-                
-                int cost = countMissingOnes(new_ones);
-                auto node = std::make_shared<Node>(
-                    minterm,
-                    std::make_shared<Node>(current_node),
-                    cost
-                );
-                
-                auto node_configuration = node->getParents();
-                
-                if (configuration_visited.find(node_configuration) != configuration_visited.end()) {
-                    continue;
-                }
-                
-                if (current_configuration.contains(minterm)) {
-                    continue;
-                }
-                
-                if (cost >= current_node.getCost()) {
-                    continue;
-                }
-                
-                if (countMissingOnes(node->getOnes()) == 0) {
-                    if (node_configuration.size() < static_cast<size_t>(shortest_solution_len)) {
-                        shortest_solution_len = static_cast<int>(node_configuration.size());
-                        solutions.clear(); // Reinicia el set de soluciones
-                    }
-                    if (node_configuration.size() <= static_cast<size_t>(shortest_solution_len)) {
-                        solutions.insert(node_configuration);
-                    }
-                } else {
-                    frontier.push(*node);
-                }
-                configuration_visited.insert(node_configuration);
+        std::vector<Cube> candidates;
+        for (size_t i = 0; i < primes.size(); ++i) {
+            bool covers_pending = false;
+            primes[i].forEachCell([&](uint32_t cell) {
+                covers_pending |= cells_[cell] == Cell::Target && !covered[cell];
+            });
+            if (!essential[i] && covers_pending) {
+                candidates.push_back(primes[i]);
             }
         }
-        
-        if (!is_sop_) {
-            solutions = sop2pos(solutions);
+        // Bigger cubes first: good solutions show up early and tighten the bound
+        std::sort(candidates.begin(), candidates.end(), [](Cube a, Cube b) {
+            if (a.dashes() != b.dashes()) {
+                return a.dashes() > b.dashes();
+            }
+            return a.value != b.value ? a.value < b.value : a.mask < b.mask;
+        });
+
+        std::vector<std::vector<Cube>> solutions;
+        for (const auto& cover : CoverSearch(candidates, pending, max_solutions).solve()) {
+            std::vector<Cube> solution = essentials;
+            for (int i : cover) {
+                solution.push_back(candidates[i]);
+            }
+            std::sort(solution.begin(), solution.end());
+            solutions.push_back(std::move(solution));
         }
-        
+        // Phase 1 of the search may add one solution beyond max_solutions: keep
+        // the ones with fewer literals
+        auto literals = [this](const std::vector<Cube>& solution) {
+            int count = 0;
+            for (Cube cube : solution) {
+                count += cube.literals(num_inputs_);
+            }
+            return count;
+        };
+        std::sort(solutions.begin(), solutions.end(), [&](const auto& a, const auto& b) {
+            int literals_a = literals(a);
+            int literals_b = literals(b);
+            if (literals_a != literals_b) {
+                return literals_a < literals_b;
+            }
+            return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
+        });
+        if (max_solutions > 0 && solutions.size() > static_cast<size_t>(max_solutions)) {
+            solutions.resize(max_solutions);
+        }
         return solutions;
     }
 
 private:
-    void invertInput() {
-        std::unordered_set<int> all_values;
-        for (int i = 0; i < (1 << inputs_number_); ++i) {
-            all_values.insert(i);
-        }
-        
-        // Remove ones and don't care from all values to get new ones
-        for (int one : ones_) {
-            all_values.erase(one);
-        }
-        for (int not_care : not_care_) {
-            all_values.erase(not_care);
-        }
-        
-        ones_ = all_values;
-        values_.clear();
-        values_.insert(ones_.begin(), ones_.end());
-        values_.insert(not_care_.begin(), not_care_.end());
-    }
+    enum class Cell : uint8_t { Other, Target, NotCare };
 
-    std::unordered_set<HashableSet<Minterm, Minterm::Hash>, 
-                       HashableSet<Minterm, Minterm::Hash>::HashFunction> sop2pos(
-            const std::unordered_set<HashableSet<Minterm, Minterm::Hash>, 
-                                   HashableSet<Minterm, Minterm::Hash>::HashFunction>& solution) {
-        std::unordered_set<HashableSet<Minterm, Minterm::Hash>, 
-                          HashableSet<Minterm, Minterm::Hash>::HashFunction> new_solution;
-        
-        for (const auto& subset : solution) {
-            HashableSet<Minterm, Minterm::Hash> pos_subset;
-            for (const auto& minterm : subset) {
-                pos_subset.insert(minterm.sop2pos());
+    int num_inputs_;
+    std::vector<Cell> cells_;
+
+    // Quine-McCluskey with neighbor lookup in a table of 4^n bits indexed by
+    // (mask, value): O(n * m) per level. Two cubes merge only if they share the
+    // mask and differ in exactly one fixed bit, so a neighbor is always in the
+    // same level.
+    std::vector<Cube> primeImplicants() const {
+        const uint32_t all_inputs = (uint32_t{1} << num_inputs_) - 1;
+        auto key = [this](Cube cube) { return (size_t{cube.mask} << num_inputs_) | cube.value; };
+        const size_t table_bits = size_t{1} << (2 * num_inputs_);
+        std::vector<uint64_t> present(bits::words(table_bits));
+        std::vector<uint64_t> combined(bits::words(table_bits));
+
+        std::vector<Cube> level;
+        for (uint32_t cell = 0; cell < cells_.size(); ++cell) {
+            if (cells_[cell] != Cell::Other) {
+                level.push_back({cell, 0});
+                bits::set(present, key(level.back()));
             }
-            new_solution.insert(pos_subset);
         }
-        
-        return new_solution;
-    }
-
-    std::unordered_set<Minterm, Minterm::Hash> getPrimeImplicants() {
-        std::vector<Minterm> minterms;
-        
-        // Create initial minterms
-        for (int v : values_) {
-            std::string binary = intToBinary(v, inputs_number_);
-            minterms.emplace_back(binary, std::unordered_set<int>{v});
-        }
-        
-        int value = 0;
-        while (value < inputs_number_ && minterms.size() > 1) {
-            std::unordered_set<Minterm, Minterm::Hash> comparatives;
-            std::vector<bool> visited(minterms.size(), false);
-            
-            for (size_t i = 0; i < minterms.size() - 1; ++i) {
-                for (size_t j = i + 1; j < minterms.size(); ++j) {
-                    if (minterms[i].hammingDistance(minterms[j]) == 1) {
-                        visited[j] = visited[i] = true;
-                        comparatives.insert(minterms[j].createImplicant(minterms[i]));
+        std::vector<Cube> next;
+        std::vector<Cube> primes;
+        while (!level.empty()) {
+            next.clear();
+            for (Cube cube : level) {
+                for (uint32_t free = all_inputs & ~(cube.value | cube.mask); free != 0; free &= free - 1) {
+                    uint32_t bit = free & (~free + 1);
+                    Cube neighbor{cube.value | bit, cube.mask};
+                    if (!bits::test(present, key(neighbor))) {
+                        continue;
+                    }
+                    bits::set(combined, key(cube));
+                    bits::set(combined, key(neighbor));
+                    Cube merged{cube.value, cube.mask | bit};
+                    if (!bits::test(present, key(merged))) {
+                        bits::set(present, key(merged));
+                        next.push_back(merged);
                     }
                 }
             }
-            
-            for (size_t i = 0; i < visited.size(); ++i) {
-                if (!visited[i]) {
-                    comparatives.insert(minterms[i]);
+            for (Cube cube : level) {
+                if (!bits::test(combined, key(cube))) {
+                    primes.push_back(cube);
                 }
             }
-            
-            if (comparatives.size() == minterms.size()) {
-                bool same = true;
-                for (const auto& m : comparatives) {
-                    if (std::find(minterms.begin(), minterms.end(), m) == minterms.end()) {
-                        same = false;
-                        break;
-                    }
-                }
-                if (same) break;
-            }
-            
-            value++;
-            minterms.clear();
-            minterms.insert(minterms.end(), comparatives.begin(), comparatives.end());
+            level.swap(next);
         }
-        
-        return std::unordered_set<Minterm, Minterm::Hash>(minterms.begin(), minterms.end());
+        return primes;
     }
 
-    std::unordered_set<Minterm, Minterm::Hash> getNonPrimeImplicants(
-            const std::unordered_set<Minterm, Minterm::Hash>& minterms) {
-        std::unordered_set<Minterm, Minterm::Hash> non_implicants;
-        
-        for (const auto& minterm : minterms) {
-            auto minterm_ones = minterm.getOnes();
-            bool has_intersection = false;
-            for (int one : ones_) {
-                if (minterm_ones.find(one) != minterm_ones.end()) {
-                    has_intersection = true;
-                    break;
-                }
-            }
-            if (!has_intersection) {
-                non_implicants.insert(minterm);
+    // essential[i] is true when primes[i] is the only prime covering some cell
+    std::vector<bool> essentialPrimeImplicants(const std::vector<Cube>& primes) const {
+        std::vector<uint32_t> count(cells_.size(), 0);
+        std::vector<uint32_t> last(cells_.size(), 0);
+        for (uint32_t i = 0; i < primes.size(); ++i) {
+            primes[i].forEachCell([&](uint32_t cell) {
+                ++count[cell];
+                last[cell] = i;
+            });
+        }
+        std::vector<bool> essential(primes.size(), false);
+        for (uint32_t cell = 0; cell < cells_.size(); ++cell) {
+            if (cells_[cell] == Cell::Target && count[cell] == 1) {
+                essential[last[cell]] = true;
             }
         }
-        
-        return non_implicants;
-    }
-
-    std::unordered_set<Minterm, Minterm::Hash> getEssentialPrimeImplicants(
-            const std::unordered_set<Minterm, Minterm::Hash>& minterms) {
-        std::unordered_set<Minterm, Minterm::Hash> essential_prime_implicants;
-        
-        for (int one : ones_) {
-            int cnt = 0;
-            Minterm last_minterm("", {});
-            bool found = false;
-            
-            for (const auto& minterm : minterms) {
-                auto minterm_ones = minterm.getOnes();
-                if (minterm_ones.find(one) != minterm_ones.end()) {
-                    cnt++;
-                    last_minterm = minterm;
-                    found = true;
-                    if (cnt > 1) break;
-                }
-            }
-            
-            if (cnt == 1 && found) {
-                essential_prime_implicants.insert(last_minterm);
-            }
-        }
-        
-        return essential_prime_implicants;
-    }
-
-    int countMissingOnes(const std::unordered_set<int>& current_ones) const {
-        int missing = 0;
-        for (int one : ones_) {
-            if (current_ones.find(one) == current_ones.end()) {
-                missing++;
-            }
-        }
-        return missing;
-    }
-
-    std::string intToBinary(int value, int width) const {
-        std::stringstream ss;
-        ss << std::setw(width) << std::setfill('0') << std::bitset<32>(value).to_string().substr(32 - width);
-        return ss.str();
+        return essential;
     }
 };
 
-#endif // REDUCER_HPP 
+#endif // REDUCER_HPP

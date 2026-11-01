@@ -1,8 +1,8 @@
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -O2
+CXXFLAGS = -std=c++20 -Wall -Wextra -O3
 TARGET = karnaugh_reducer
 SOURCES = main.cpp
-HEADERS = minterm.hpp node.hpp priority_queue.hpp reducer.hpp
+HEADERS = cube.hpp cover_search.hpp reducer.hpp
 
 $(TARGET): $(SOURCES) $(HEADERS)
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SOURCES)
@@ -13,4 +13,4 @@ clean:
 run: $(TARGET)
 	./$(TARGET)
 
-.PHONY: clean run 
+.PHONY: clean run
