@@ -131,6 +131,14 @@ if __name__ == '__main__':
     input_number = 6
     get_results(ones, not_care, input_number)
 
+    # Minimum SoP has 8 terms (4 solutions); the former greedy search
+    # returned 9 depending on the iteration order of the prime implicants.
+    ones = {0, 2, 5, 7, 8, 10, 13, 17, 21, 23, 27, 29, 31, 32, 34, 40, 42, 44,
+            48, 50, 52, 53, 55, 58, 59, 63}
+    not_care = {15, 16, 25, 39, 45}
+    input_number = 6
+    get_results(ones, not_care, input_number)
+
     # Benchmark of _get_prime_implicants (hash-based Quine-McCluskey)
     for input_number in (4, 6, 7, 8, 9, 10):
         get_prime_implicants_benchmark(input_number)
