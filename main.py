@@ -1,8 +1,8 @@
 import timeit
 from reducer import Reducer as R1
 
-def get_results(ones, not_care, input_number):
-    s1 = R1(num_input=input_number, ones=ones, not_care=not_care, is_sop=False
+def get_results(ones, not_care, input_number, is_sop=True):
+    s1 = R1(num_input=input_number, ones=ones, not_care=not_care, is_sop=is_sop
             )
     t1 = timeit.timeit(lambda: s1.get_all_solutions(), number=10)
     sol1 = s1.get_all_solutions()
